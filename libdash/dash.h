@@ -25,11 +25,6 @@ void DASH_FFT(double* input, double* output, size_t size, bool isForwardTransfor
 void DASH_GEMM(double* A_re, double* A_im, double* B_re, double* B_im, double* C_re, double* C_im, size_t Row_A, size_t Col_A, size_t Col_B);
 
 /*
- * ${Comments about usage of DASH_FIR}
- */
-void DASH_FIR(double* input_re, double* input_im, double* filter_re, double* filter_im, double* output_re, double* output_im, size_t input_len, size_t filter_len);
-
-/*
  * Current open questions: 
  * 1. Should we be doing anything to stop the user from shooting themselves in the foot with divide-by-zero with that ZIP_DIV op?
  */
