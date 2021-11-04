@@ -1,0 +1,9 @@
+{
+  extern "C"
+  {
+    enqueue_kernel;
+    DASH_FFT;
+    DASH_GEMM;
+    DASH_ZIP;
+  };
+};
