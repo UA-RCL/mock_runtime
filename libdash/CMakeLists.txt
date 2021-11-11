@@ -20,6 +20,7 @@ if (${RUNTIME_BUILD})
 else()
   message(STATUS "Building to operate as a standalone, CPU-only library")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPU_ONLY")
+  string(STRIP "${CMAKE_CXX_FLAGS}" CMAKE_CXX_FLAGS)
 endif()
 
 add_custom_target(dash
@@ -31,6 +32,6 @@ add_custom_target(dash
 
 add_custom_target(dash_so
   ALL
-  COMMAND ${CMAKE_CXX_COMPILER} -shared -fPIC ${LIBDASH_SRCS} ${GSL} ${GSLCBLAS} ${MATH_SO} -o libdash${SUFFIX}.so
+  COMMAND ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -shared -fPIC ${LIBDASH_SRCS} ${GSL} ${GSLCBLAS} ${MATH_SO} -o libdash${SUFFIX}.so
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
