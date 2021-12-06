@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <pthread.h>
+#include <string.h>
 #include <unistd.h>
 #include <deque>
 #include "dash.h"
@@ -161,25 +162,48 @@ extern "C" void enqueue_kernel(const char* kernel_name, ...) {
   }
 }
 
-void thread_exec_function(void* runfunc) {
+struct user_obj_call_t {
+  void * func;
+  int num_args;
+  char** args;
+};
+
+void thread_exec_function(void * call_setup) {
+
+  user_obj_call_t * callStruct = (user_obj_call_t *)call_setup;
+
   // Cast our nullptr argument to a function pointer #justCThings
-  void (*libmain)(void) = (void(*)(void)) runfunc;
+  void (*libmain)(int, char**) = (void(*)(int, char**)) callStruct->func;
+
   // Call the function
-  (*libmain)();
+  (*libmain)(callStruct->num_args, callStruct->args);
+
   // Once the library's main function exits, enqueue a poison pill to tell the runtime
   enqueue_kernel("POISON_PILL");
 }
 
 int main(int argc, char** argv) {
   LOG("Launching the main function of the mock 'runtime' thread [cedr].\n\n");
- 
+
   pthread_mutex_init(&task_list_mutex, NULL);
 
   std::string shared_object_name;
   int appInstances = 1;
   int nbCompletedApps = 0;
+  user_obj_call_t objCallStruct;
+  objCallStruct.args = new char * [argc]; // Create a new list of args, so we can control order
+  objCallStruct.num_args = 1;
+  
+  if (argc > 3) {
+    shared_object_name = std::string(argv[1]);
+    appInstances = atoi(argv[2]);
+    objCallStruct.num_args = argc - 2; // Assumes Call is "mock_runtime x.so 1 <args to x.so>
 
-  if (argc > 2) {
+    for(int i = 3; i < argc; i++)
+    {
+      objCallStruct.args[i - 2] = argv[i];
+    }
+  } else if (argc > 2) {
     shared_object_name = std::string(argv[1]);
     appInstances = atoi(argv[2]);
   } else if (argc > 1){
@@ -188,17 +212,17 @@ int main(int argc, char** argv) {
     shared_object_name = "./child.so";
   }
 
+  objCallStruct.args[0] = strdup(shared_object_name.c_str()); // Pass copy so we don't violate const
+
   void *dlhandle = dlopen(shared_object_name.c_str(), RTLD_LAZY);
-  //void (*lib_main)(void*);
-  void *lib_main;
   if (dlhandle == NULL) {
     fprintf(stderr, "Unable to open child shared object: %s (perhaps prepend './'?)\n", shared_object_name.c_str());
     return -1;
   } 
-  //lib_main = (void(*)(void*))dlsym(dlhandle, "main");
-  lib_main = (void*)dlsym(dlhandle, "main");
+  
+  objCallStruct.func = (void*)dlsym(dlhandle, "main");
 
-  if (lib_main == NULL) {
+  if (objCallStruct.func == NULL) {
     fprintf(stderr, "Unable to get function handle\n");
     return -1;
   } 
@@ -210,7 +234,7 @@ int main(int argc, char** argv) {
     //pthread_create(&worker_thread[p], nullptr, (void *(*)(void *))lib_main, nullptr);
     // Now, we call a wrapper function and pass the main function as an argument so that we can insert a hook for enqueueing a poison pill
     // (or otherwise telling the runtime that the application is done executing)
-    pthread_create(&worker_thread[p], nullptr, (void *(*)(void *)) thread_exec_function, lib_main);
+    pthread_create(&worker_thread[p], nullptr, (void *(*)(void *)) thread_exec_function, &objCallStruct);
   }
   void* args[MAX_ARGS];
 
@@ -273,6 +297,9 @@ int main(int argc, char** argv) {
   }
 
   printf("[cedr] The worker thread has joined, shutting down...\n");
+
+  free(objCallStruct.args[0]);
+  delete[] objCallStruct.args;
 
   dlclose(dlhandle);
   return 0;
