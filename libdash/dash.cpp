@@ -21,10 +21,15 @@ void DASH_FFT_cpu(double** input, double** output, size_t* size, bool* isForward
     data[(2*i)+1] = (*input)[(2*i)+1];
   }
 
-  int check = gsl_fft_complex_radix2_forward(data, 1, (*size));
-
+  int check;
+  if (*isForwardTransform) {
+    check = gsl_fft_complex_radix2_forward(data, 1, (*size));
+  } else {
+    check = gsl_fft_complex_radix2_inverse(data, 1, (*size));
+  }
+    
   if (check != 0){
-    fprintf(stderr, "[libdash] Faild to complete DASH_FFT_cpu using libgsl with message %d!\n", check);
+    fprintf(stderr, "[libdash] Failed to complete DASH_FFT_cpu using libgsl with message %d!\n", check);
     exit(1);
   }
 
