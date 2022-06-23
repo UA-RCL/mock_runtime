@@ -10,7 +10,8 @@ typedef enum zip_op {
   ZIP_ADD,
   ZIP_SUB,
   ZIP_MULT,
-  ZIP_DIV
+  ZIP_DIV,
+  ZIP_CMP_MULT
 } zip_op_t;
 
 /*

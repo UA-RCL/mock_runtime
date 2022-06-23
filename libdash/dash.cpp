@@ -84,6 +84,10 @@ void DASH_ZIP_cpu(double** input_1, double** input_2, double** output, size_t* s
       case ZIP_DIV:
         (*output)[i] = (*input_1)[i] / (*input_2)[i];
         break;
+      case ZIP_CMP_MULT:
+        (*output)[i*2] = (*input_1)[i*2] * (*input_2)[i*2] - (*input_1)[i*2+1] * (*input_2)[i*2+1];
+        (*output)[i*2+1] = (*input_1)[i*2+1] * (*input_2)[i*2] + (*input_1)[i*2] * (*input_2)[i*2+1];
+        break;
     }
   }
 }
