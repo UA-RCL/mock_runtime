@@ -36,6 +36,7 @@ pthread_mutex_t task_list_mutex;
 extern "C" void DASH_FFT_cpu(double** input, double** output, size_t* size, bool* isForwardTransform);
 extern "C" void DASH_GEMM_cpu(double** A_re, double** A_im, double** B_re, double** B_im, double** C_re, double** C_im, size_t* A_ROWS, size_t* A_COLS, size_t* B_COLS);
 extern "C" void DASH_ZIP_cpu(double** input_1, double** input_2, double** output, size_t* size, zip_op_t* op);
+extern "C" void DASH_CONV_2D_cpu(double **input, int *height, int *width, double **mask, int *mask_size, double **output);
 
 extern "C" void enqueue_kernel(const char* kernel_name, ...) {
   std::string kernel_str(kernel_name);
@@ -136,6 +137,38 @@ extern "C" void enqueue_kernel(const char* kernel_name, ...) {
     new_node->completion_barrier = barrier;
 
     LOG("[nk] I have finished initializing my GEMM node, pushing it onto the task list\n");
+
+    // Push this node onto the ready queue
+    // Note: this would be a GREAT place for a lock-free multi-producer queue
+    // Otherwise, every application trying to push in new work is going to get stuck waiting for some eventual ready queue mutex
+    pthread_mutex_lock(&task_list_mutex);
+    task_list.push_back(new_node);
+    pthread_mutex_unlock(&task_list_mutex);
+    LOG("[nk] I have pushed a new task onto the work queue, time to go sleep until it gets scheduled and completed\n");
+  } else if (kernel_str == "DASH_CONV_2D") {
+    double **input = va_arg(args, double **);
+    int *height = va_arg(args, int *);
+    int *width = va_arg(args, int *);
+    double **mask = va_arg(args, double **);
+    int *mask_size = va_arg(args, int *);
+    double **output = va_arg(args, double **);
+     // Last arg: needs to be the synchronization barrier
+    pthread_barrier_t *barrier = va_arg(args, pthread_barrier_t *);
+    va_end(args);
+
+    // Create some sort of task node to represent this task
+    task_node* new_node = (task_node*) calloc(1, sizeof(task_node));
+    new_node->name = "CONV_2D";
+    new_node->args.push_back(input);
+    new_node->args.push_back(height);
+    new_node->args.push_back(width);
+    new_node->args.push_back(mask);
+    new_node->args.push_back(mask_size);
+    new_node->args.push_back(output);
+    new_node->run_function = (void*) DASH_CONV_2D_cpu;
+    new_node->completion_barrier = barrier;
+
+    LOG("[nk] I have finished initializing my CONV_2D node, pushing it onto the task list\n");
 
     // Push this node onto the ready queue
     // Note: this would be a GREAT place for a lock-free multi-producer queue

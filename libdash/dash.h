@@ -31,6 +31,14 @@ void DASH_GEMM(double* A_re, double* A_im, double* B_re, double* B_im, double* C
  */
 void DASH_ZIP(double* input_1, double* input_2, double* output, size_t size, zip_op_t op);
 
+/*
+ * Usage of DASH_CONV_2D:
+ * Both input and mask should be in double type
+ * width and height is for input and output
+ * mask_size is for a single dimension of the mask where mask_width=mask_height=mask_size
+ */
+void DASH_CONV_2D(double *input, int height, int width, double *mask, int mask_size, double *output);
+
 #ifdef __cplusplus
 } // Close 'extern "C"'
 #endif

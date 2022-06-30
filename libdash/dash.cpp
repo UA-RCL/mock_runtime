@@ -92,6 +92,29 @@ void DASH_ZIP_cpu(double** input_1, double** input_2, double** output, size_t* s
   }
 }
 
+void DASH_CONV_2D_cpu(double **input, int *height, int *width, double **mask, int *mask_size, double **output) {
+  int i, j, k, l;
+  int s, w;
+  int z;
+
+  z = (*mask_size) / 2;
+
+  for (i = 0; i < (*height); i++) {
+    for (j = 0; j < (*width); j++) {
+      (*output)[i * (*width) + j] = 0;
+      for (k = 0; k < (*mask_size); k++) {
+        for (l = 0; l < (*mask_size); l++) {
+          s = i + k - z;
+          w = j + l - z;
+          if ((s >= 0 && s < (*height)) && (w >= 0 && w < (*width))) {
+            (*output)[i * (*width) + j] += (*input)[(*width) * s + w] * (*mask)[(*mask_size) * k + l];
+          }
+        }
+      }
+    }
+  }
+}
+
 void DASH_FFT(double* input, double* output, size_t size, bool isForwardTransform) {
 #if defined(CPU_ONLY)
   DASH_FFT_cpu(&input, &output, &size, &isForwardTransform);
@@ -123,6 +146,18 @@ void DASH_ZIP(double* input_1, double* input_2, double* output, size_t size, zip
   pthread_barrier_t barrier;
   pthread_barrier_init(&barrier, nullptr, 2);
   enqueue_kernel("DASH_ZIP", &input_1, &input_2, &output, &size, &op, &barrier);
+  pthread_barrier_wait(&barrier);
+  pthread_barrier_destroy(&barrier);
+#endif
+}
+
+void DASH_CONV_2D(double *input, int height, int width, double *mask, int mask_size, double *output) {
+#if defined(CPU_ONLY)
+  DASH_CONV_2D_cpu(&input, &height, &width, &mask, &mask_size, &output);
+#else
+  pthread_barrier_t barrier;
+  pthread_barrier_init(&barrier, nullptr, 2);
+  enqueue_kernel("DASH_CONV_2D", &input, &height, &width, &mask, &mask_size, &output, &barrier);
   pthread_barrier_wait(&barrier);
   pthread_barrier_destroy(&barrier);
 #endif
